@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\PruebaXdebugController;
 
 /*
 |--------------------------------------------------------------------------
@@ -14,5 +15,8 @@ use Illuminate\Support\Facades\Route;
 */
 
 Route::get('/', function () {
+    $mensaje = "Hola desde el debugger"; // ← aquí el breakpoint
     return view('welcome');
 });
+
+Route::get('/debug-test', [PruebaXdebugController::class, 'index']);
