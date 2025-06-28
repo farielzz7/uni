@@ -2,7 +2,7 @@ name: Build & Push Docker image to Amazon ECR
 
 on:
   push:
-    branches: [ main ] # o la rama que uses
+    branches: [ main ]
 
 jobs:
   deploy:
@@ -30,7 +30,7 @@ jobs:
     - name: Build, tag, and push image to ECR
       env:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-        ECR_REPOSITORY: laravel-app
+        ECR_REPOSITORY: laravel-app 
         IMAGE_TAG: latest
       run: |
         docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
