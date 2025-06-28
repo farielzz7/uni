@@ -2,11 +2,11 @@ name: Build & Push Docker image to Amazon ECR
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main ] # Cambia si usas otra rama
 
 jobs:
   deploy:
-    name: Build and Push
+    name: Build and Push Docker image
     runs-on: ubuntu-latest
 
     steps:
@@ -21,7 +21,7 @@ jobs:
       with:
         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: ${{ secrets.AWS_REGION }}
+        aws-region: us-east-1 # ← Región escrita directamente
 
     - name: Login to Amazon ECR
       id: login-ecr
@@ -30,7 +30,7 @@ jobs:
     - name: Build, tag, and push image to ECR
       env:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-        ECR_REPOSITORY: laravel-app 
+        ECR_REPOSITORY: laravel-app # ← cambia si tu repo ECR se llama distinto
         IMAGE_TAG: latest
       run: |
         docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
