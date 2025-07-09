@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  phpmyadmin-aws:
+    image: phpmyadmin/phpmyadmin:latest
+    container_name: phpmyadmin-aws
+    restart: unless-stopped
+    ports:
+      - '8081:80'
+    environment:
+      PMA_HOST: db-gp.cr84e8msy852.us-east-2.rds.amazonaws.com
+      PMA_PORT: 3306
+      PMA_USER: fariel
+      PMA_PASSWORD: farielpzz
+      MYSQL_ROOT_PASSWORD: farielpzz
+    networks:
+      - aws-db
+
+networks:
+  aws-db:
+    driver: bridge

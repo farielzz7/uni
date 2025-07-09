@@ -2,19 +2,19 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Hotel;
+use App\Models\Proveedor;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 
-class HotelController extends Controller
+class ProveedorController extends Controller
 {
     /**
      * Display a listing of the resource.
      */
     public function index()
     {
-        $hoteles = Hotel::all();
-        return response()->json($hoteles);
+        $proveedores = Proveedor::all();
+        return response()->json($proveedores);
     }
 
     /**
@@ -24,73 +24,71 @@ class HotelController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'nombre' => 'required|string|max:255',
-            'ubicacion' => 'required|string|max:255',
             'descripcion' => 'nullable|string',
-            'estrellas' => 'required|integer|min:1|max:5',
+            'contacto' => 'nullable|string|max:255',
         ]);
 
         if ($validator->fails()) {
             return response()->json($validator->errors(), 400);
         }
 
-        $hotel = Hotel::create($request->all());
+        $proveedor = Proveedor::create($request->all());
 
-        return response()->json($hotel, 201);
+        return response()->json($proveedor, 201);
     }
 
     /**
      * Display the specified resource.
      */
-    public function show($id)
+    public function show(string $id)
     {
-        $hotel = Hotel::find($id);
+        $proveedor = Proveedor::find($id);
 
-        if (is_null($hotel)) {
-            return response()->json(['message' => 'Hotel no encontrado'], 404);
+        if (is_null($proveedor)) {
+            return response()->json(['message' => 'Proveedor no encontrado'], 404);
         }
 
-        return response()->json($hotel);
+        return response()->json($proveedor);
     }
 
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, $id)
+    public function update(Request $request, string $id)
     {
-        $hotel = Hotel::find($id);
+        $proveedor = Proveedor::find($id);
 
-        if (is_null($hotel)) {
-            return response()->json(['message' => 'Hotel no encontrado'], 404);
+        if (is_null($proveedor)) {
+            return response()->json(['message' => 'Proveedor no encontrado'], 404);
         }
 
         $validator = Validator::make($request->all(), [
             'nombre' => 'string|max:255',
-            'ubicacion' => 'string|max:255',
             'descripcion' => 'nullable|string',
-            'estrellas' => 'integer|min:1|max:5',
+            'contacto' => 'nullable|string|max:255',
         ]);
 
         if ($validator->fails()) {
             return response()->json($validator->errors(), 400);
         }
 
-        $hotel->update($request->all());
+        $proveedor->update($request->all());
 
-        return response()->json($hotel);
+        return response()->json($proveedor);
     }
 
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy($id)
+    public function destroy(string $id)
     {
-        $hotel = Hotel::find($id);
+        $proveedor = Proveedor::find($id);
 
-        if (is_null($hotel)) {
-            return response()->json(['message' => 'Hotel no encontrado'], 404);
+        if (is_null($proveedor)) {
+            return response()->json(['message' => 'Proveedor no encontrado'], 404);
         }
 
-        $hotel->delete();
+        $proveedor->delete();
 
         return response()->json(null, 204);
     }

@@ -20,3 +20,7 @@ Route::get('/', function () {
 });
 
 Route::get('/debug-test', [PruebaXdebugController::class, 'index']);
+
+Route::get('/test', function () {
+    return response()->json(['status' => 'ok']);
+});

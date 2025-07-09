@@ -1,3 +1,5 @@
+version: '3.8'
+
 services:
   app:
     build:
@@ -8,12 +10,12 @@ services:
     restart: unless-stopped
     working_dir: /var/www
     volumes:
-      - '.:/var/www'
+      - .:/var/www
     networks:
       - laravel
     ports:
       - '8000:8000'
-    command: 'php artisan serve --host=0.0.0.0 --port=8000'
+    command: php artisan serve --host=0.0.0.0 --port=8000
     depends_on:
       - db
     environment:
@@ -27,8 +29,8 @@ services:
     ports:
       - '80:80'
     volumes:
-      - '.:/var/www'
-      - './docker/nginx:/etc/nginx/conf.d'
+      - .:/var/www
+      - ./docker/nginx/conf.d:/etc/nginx/conf.d
     networks:
       - laravel
     depends_on:
@@ -38,11 +40,11 @@ services:
     image: mysql:8.0
     container_name: db
     restart: unless-stopped
+    ports:
+      - '3306:3306'
     environment:
       MYSQL_DATABASE: gp
       MYSQL_ALLOW_EMPTY_PASSWORD: 'yes'
-    ports:
-      - '3306:3306'
     volumes:
       - dbdata:/var/lib/mysql
     networks:
@@ -65,9 +67,9 @@ services:
   gitclone:
     image: alpine/git
     container_name: gitclone
-    command: 'clone --depth=1 https://github.com/farielzz7/uni.git /cloned-repo'
+    command: clone --depth=1 https://github.com/farielzz7/uni.git /cloned-repo
     volumes:
-      - './cloned:/cloned-repo'
+      - ./cloned:/cloned-repo
     restart: 'no'
     networks:
       - laravel
