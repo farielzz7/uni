@@ -40,4 +40,27 @@ class User extends Authenticatable
     {
         return $this->belongsToMany(Rol::class, 'usuarioxrol', 'id_usuario', 'id_rol');
     }
+
+    public function notificaciones()
+    {
+        return $this->hasMany(Notificacion::class, 'id_usuario');
+    }
+
+    // Usuarios que siguen a este usuario
+    public function seguidores()
+    {
+        return $this->belongsToMany(User::class, 'seguidores', 'user_id', 'follower_id');
+    }
+
+    // Usuarios a los que este usuario sigue
+    public function siguiendo()
+    {
+        return $this->belongsToMany(User::class, 'seguidores', 'follower_id', 'user_id');
+    }
+
+    // Comprueba si este usuario está siguiendo a otro usuario
+    public function isFollowing(User $user)
+    {
+        return $this->siguiendo()->where('user_id', $user->id)->exists();
+    }
 }

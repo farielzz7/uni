@@ -6,13 +6,15 @@ use App\Models\ImagenDestino;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Http\JsonResponse;
+use Symfony\Component\HttpFoundation\Response;
 
 class ImagenDestinoController extends Controller
 {
     /**
      * Display a listing of the resource.
      */
-    public function index(Request $request)
+    public function index(Request $request): JsonResponse
     {
         $query = ImagenDestino::query();
 
@@ -27,7 +29,7 @@ class ImagenDestinoController extends Controller
     /**
      * Store a newly created resource in storage.
      */
-    public function store(Request $request)
+    public function store(Request $request): JsonResponse
     {
         $validator = Validator::make($request->all(), [
             'id_destino' => 'required|integer|exists:destinos,id',
@@ -37,30 +39,37 @@ class ImagenDestinoController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json($validator->errors(), 400);
+            return response()->json([
+                'success' => false,
+                'message' => 'Errores de validación',
+                'errors' => $validator->errors()
+            ], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
         // Guardar la imagen y obtener la ruta
         $path = $request->file('imagen')->store('public/imagenes_destinos');
         $url = Storage::url($path);
 
-        $data = $request->only(['id_destino', 'es_principal', 'descripcion']);
+        $data = $validator->validated(); // Usar datos validados
         $data['url_imagen'] = $url;
 
         $imagenDestino = ImagenDestino::create($data);
 
-        return response()->json($imagenDestino, 201);
+        return response()->json($imagenDestino, Response::HTTP_CREATED);
     }
 
     /**
      * Display the specified resource.
      */
-    public function show(string $id)
+    public function show(string $id): JsonResponse
     {
         $imagenDestino = ImagenDestino::find($id);
 
         if (is_null($imagenDestino)) {
-            return response()->json(['message' => 'Imagen no encontrada'], 404);
+            return response()->json([
+                'success' => false,
+                'message' => 'Imagen no encontrada'
+            ], Response::HTTP_NOT_FOUND);
         }
 
         return response()->json($imagenDestino);
@@ -69,12 +78,15 @@ class ImagenDestinoController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, string $id)
+    public function update(Request $request, string $id): JsonResponse
     {
         $imagenDestino = ImagenDestino::find($id);
 
         if (is_null($imagenDestino)) {
-            return response()->json(['message' => 'Imagen no encontrada'], 404);
+            return response()->json([
+                'success' => false,
+                'message' => 'Imagen no encontrada'
+            ], Response::HTTP_NOT_FOUND);
         }
 
         // Solo actualizamos metadatos, no el archivo en sí.
@@ -84,10 +96,14 @@ class ImagenDestinoController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json($validator->errors(), 400);
+            return response()->json([
+                'success' => false,
+                'message' => 'Errores de validación',
+                'errors' => $validator->errors()
+            ], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
-        $imagenDestino->update($request->only(['es_principal', 'descripcion']));
+        $imagenDestino->update($validator->validated()); // Usar datos validados
 
         return response()->json($imagenDestino);
     }
@@ -95,12 +111,15 @@ class ImagenDestinoController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(string $id)
+    public function destroy(string $id): JsonResponse
     {
         $imagenDestino = ImagenDestino::find($id);
 
         if (is_null($imagenDestino)) {
-            return response()->json(['message' => 'Imagen no encontrada'], 404);
+            return response()->json([
+                'success' => false,
+                'message' => 'Imagen no encontrada'
+            ], Response::HTTP_NOT_FOUND);
         }
 
         // Extraer la ruta relativa del almacenamiento desde la URL completa
@@ -114,6 +133,6 @@ class ImagenDestinoController extends Controller
         // Eliminar el registro de la base de datos
         $imagenDestino->delete();
 
-        return response()->json(null, 204);
+        return response()->json(null, Response::HTTP_NO_CONTENT);
     }
 }

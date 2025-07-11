@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\Destino;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Http\JsonResponse;
+use Symfony\Component\HttpFoundation\Response;
 
 class DestinoController extends Controller
 {
@@ -12,7 +14,7 @@ class DestinoController extends Controller
      * Muestra una lista paginada de destinos.
      * Permite una búsqueda básica por nombre.
      */
-    public function index(Request $request)
+    public function index(Request $request): JsonResponse
     {
         $query = Destino::query();
 
@@ -31,7 +33,7 @@ class DestinoController extends Controller
      * Crea un nuevo destino en la base de datos.
      * Acción restringida a administradores.
      */
-    public function store(Request $request)
+    public function store(Request $request): JsonResponse
     {
         // A futuro, aquí se debería verificar la autorización:
         // $this->authorize('create', Destino::class);
@@ -44,18 +46,22 @@ class DestinoController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json($validator->errors(), 422);
+            return response()->json([
+                'success' => false,
+                'message' => 'Errores de validación',
+                'errors' => $validator->errors()
+            ], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
         $destino = Destino::create($validator->validated());
 
-        return response()->json($destino, 201);
+        return response()->json($destino, Response::HTTP_CREATED);
     }
 
     /**
      * Muestra un destino específico con todas sus relaciones.
      */
-    public function show(Destino $destino)
+    public function show(Destino $destino): JsonResponse
     {
         // Carga eficiente de todas las relaciones para la vista de detalle
         $destino->load(['categorias', 'imagenes', 'comentarios.turista', 'hoteles']);
@@ -66,7 +72,7 @@ class DestinoController extends Controller
      * Actualiza un destino existente.
      * Acción restringida a administradores.
      */
-    public function update(Request $request, Destino $destino)
+    public function update(Request $request, Destino $destino): JsonResponse
     {
         // A futuro, aquí se debería verificar la autorización:
         // $this->authorize('update', $destino);
@@ -79,7 +85,11 @@ class DestinoController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json($validator->errors(), 422);
+            return response()->json([
+                'success' => false,
+                'message' => 'Errores de validación',
+                'errors' => $validator->errors()
+            ], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
         $destino->update($validator->validated());
@@ -91,13 +101,13 @@ class DestinoController extends Controller
      * Elimina un destino.
      * Acción restringida a administradores.
      */
-    public function destroy(Destino $destino)
+    public function destroy(Destino $destino): JsonResponse
     {
         // A futuro, aquí se debería verificar la autorización:
         // $this->authorize('delete', $destino);
 
         $destino->delete();
 
-        return response()->json(null, 204); // 204 No Content
+        return response()->json(null, Response::HTTP_NO_CONTENT);
     }
 }

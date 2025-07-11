@@ -57,7 +57,7 @@ class APIController extends Controller
     /**
      * Buscar vuelos en tiempo real
      */
-    public function buscarVuelos(Request $request)
+    public function buscarVuelos(Request $request): JsonResponse
     {
         try {
             $request->validate([
@@ -72,7 +72,7 @@ class APIController extends Controller
 
             $token = $this->getAmadeusToken();
             if (!$token) {
-                return response()->json(['error' => 'No se pudo obtener token API'], 500);
+                return response()->json(['success' => false, 'message' => 'No se pudo obtener token API'], Response::HTTP_INTERNAL_SERVER_ERROR);
             }
 
             $params = [
@@ -108,18 +108,20 @@ class APIController extends Controller
                 ]);
             }
 
-            return response()->json(['error' => 'Error en la búsqueda de vuelos'], 400);
+            return response()->json(['success' => false, 'message' => 'Error en la búsqueda de vuelos', 'errors' => $response->json()], Response::HTTP_BAD_REQUEST);
 
+        } catch (ValidationException $e) {
+            return response()->json(['success' => false, 'message' => 'Errores de validación', 'errors' => $e->errors()], Response::HTTP_UNPROCESSABLE_ENTITY);
         } catch (Exception $e) {
             Log::error('Error buscando vuelos: ' . $e->getMessage());
-            return response()->json(['error' => 'Error interno del servidor'], 500);
+            return response()->json(['success' => false, 'message' => 'Error interno del servidor'], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
 
     /**
      * Buscar hoteles en tiempo real
      */
-    public function buscarHoteles(Request $request)
+    public function buscarHoteles(Request $request): JsonResponse
     {
         try {
             $request->validate([
@@ -176,18 +178,20 @@ class APIController extends Controller
                 ]);
             }
 
-            return response()->json(['error' => 'Error en la búsqueda de hoteles'], 400);
+            return response()->json(['success' => false, 'message' => 'Error en la búsqueda de hoteles', 'errors' => $response->json()], Response::HTTP_BAD_REQUEST);
 
+        } catch (ValidationException $e) {
+            return response()->json(['success' => false, 'message' => 'Errores de validación', 'errors' => $e->errors()], Response::HTTP_UNPROCESSABLE_ENTITY);
         } catch (Exception $e) {
             Log::error('Error buscando hoteles: ' . $e->getMessage());
-            return response()->json(['error' => 'Error interno del servidor'], 500);
+            return response()->json(['success' => false, 'message' => 'Error interno del servidor'], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
 
     /**
      * Buscar actividades y atracciones turísticas
      */
-    public function buscarActividades(Request $request)
+    public function buscarActividades(Request $request): JsonResponse
     {
         try {
             $request->validate([
@@ -196,12 +200,17 @@ class APIController extends Controller
                 'limite' => 'nullable|integer|min:1|max:30'
             ]);
 
+            $locationId = $this->obtenerLocationId($request->ubicacion);
+            if (!$locationId) {
+                return response()->json(['success' => false, 'message' => 'No se pudo encontrar la ubicación para actividades'], Response::HTTP_NOT_FOUND);
+            }
+
             $response = Http::withHeaders([
                 'X-RapidAPI-Key' => $this->tripadvisor_api_key,
                 'X-RapidAPI-Host' => 'tripadvisor1.p.rapidapi.com'
             ])->get('https://tripadvisor1.p.rapidapi.com/restaurants/list', [
-                'location_id' => $this->obtenerLocationId($request->ubicacion),
-                'restaurant_tagcategory' => '10591',
+                'location_id' => $locationId,
+                'restaurant_tagcategory' => '10591', // Hardcoded for restaurants, should be dynamic based on 'categoria'
                 'restaurant_tagcategory_standalone' => '10591',
                 'currency' => 'MXN',
                 'lang' => 'es_MX',
@@ -217,18 +226,20 @@ class APIController extends Controller
                 ]);
             }
 
-            return response()->json(['error' => 'Error en la búsqueda de actividades'], 400);
+            return response()->json(['success' => false, 'message' => 'Error en la búsqueda de actividades', 'errors' => $response->json()], Response::HTTP_BAD_REQUEST);
 
+        } catch (ValidationException $e) {
+            return response()->json(['success' => false, 'message' => 'Errores de validación', 'errors' => $e->errors()], Response::HTTP_UNPROCESSABLE_ENTITY);
         } catch (Exception $e) {
             Log::error('Error buscando actividades: ' . $e->getMessage());
-            return response()->json(['error' => 'Error interno del servidor'], 500);
+            return response()->json(['success' => false, 'message' => 'Error interno del servidor'], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
 
     /**
      * Obtener información del clima
      */
-    public function obtenerClima(Request $request)
+    public function obtenerClima(Request $request): JsonResponse
     {
         try {
             $request->validate([
@@ -254,18 +265,20 @@ class APIController extends Controller
                 ]);
             }
 
-            return response()->json(['error' => 'Error obteniendo información del clima'], 400);
+            return response()->json(['success' => false, 'message' => 'Error obteniendo información del clima', 'errors' => $response->json()], Response::HTTP_BAD_REQUEST);
 
+        } catch (ValidationException $e) {
+            return response()->json(['success' => false, 'message' => 'Errores de validación', 'errors' => $e->errors()], Response::HTTP_UNPROCESSABLE_ENTITY);
         } catch (Exception $e) {
             Log::error('Error obteniendo clima: ' . $e->getMessage());
-            return response()->json(['error' => 'Error interno del servidor'], 500);
+            return response()->json(['success' => false, 'message' => 'Error interno del servidor'], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
 
     /**
      * Crear paquete personalizado basado en presupuesto
      */
-    public function crearPaquetePersonalizado(Request $request)
+    public function crearPaquetePersonalizado(Request $request): JsonResponse
     {
         try {
             $request->validate([
@@ -286,10 +299,17 @@ class APIController extends Controller
             $distribucion = $this->calcularDistribucionPresupuesto($request);
 
             // Buscar opciones en paralelo
+            // NOTA: Para una implementación real, se recomienda usar GuzzleHttp\Promise\Utils::all()
+            // o Laravel's Http::pool() para llamadas asíncronas a APIs externas.
+            // Por ahora, las llamadas se harán secuencialmente.
+            $vuelos = $this->buscarVuelosParaPaquete($request, $distribucion['vuelos']);
+            $hoteles = $this->buscarHotelesParaPaquete($request, $distribucion['hoteles']);
+            $actividades = $this->buscarActividadesParaPaquete($request, $distribucion['actividades']);
+
             $resultados = [
-                'vuelos' => $this->buscarVuelosParaPaquete($request, $distribucion['vuelos']),
-                'hoteles' => $this->buscarHotelesParaPaquete($request, $distribucion['hoteles']),
-                'actividades' => $this->buscarActividadesParaPaquete($request, $distribucion['actividades'])
+                'vuelos' => $vuelos,
+                'hoteles' => $hoteles,
+                'actividades' => $actividades
             ];
 
             // Generar combinaciones de paquetes
@@ -303,16 +323,18 @@ class APIController extends Controller
                 'total_opciones' => count($paquetes)
             ]);
 
+        } catch (ValidationException $e) {
+            return response()->json(['success' => false, 'message' => 'Errores de validación', 'errors' => $e->errors()], Response::HTTP_UNPROCESSABLE_ENTITY);
         } catch (Exception $e) {
             Log::error('Error creando paquete personalizado: ' . $e->getMessage());
-            return response()->json(['error' => 'Error interno del servidor'], 500);
+            return response()->json(['success' => false, 'message' => 'Error interno del servidor'], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
 
     /**
      * Obtener cotización de cambio de moneda
      */
-    public function obtenerTipoCambio(Request $request)
+    public function obtenerTipoCambio(Request $request): JsonResponse
     {
         try {
             $request->validate([
@@ -328,7 +350,7 @@ class APIController extends Controller
                 $rate = $data['rates'][$request->to] ?? null;
 
                 if (!$rate) {
-                    return response()->json(['error' => 'Moneda no encontrada'], 400);
+                    return response()->json(['success' => false, 'message' => 'Moneda no encontrada'], Response::HTTP_BAD_REQUEST);
                 }
 
                 $resultado = [
@@ -349,11 +371,13 @@ class APIController extends Controller
                 ]);
             }
 
-            return response()->json(['error' => 'Error obteniendo tipo de cambio'], 400);
+            return response()->json(['success' => false, 'message' => 'Error obteniendo tipo de cambio', 'errors' => $response->json()], Response::HTTP_BAD_REQUEST);
 
+        } catch (ValidationException $e) {
+            return response()->json(['success' => false, 'message' => 'Errores de validación', 'errors' => $e->errors()], Response::HTTP_UNPROCESSABLE_ENTITY);
         } catch (Exception $e) {
             Log::error('Error obteniendo tipo de cambio: ' . $e->getMessage());
-            return response()->json(['error' => 'Error interno del servidor'], 500);
+            return response()->json(['success' => false, 'message' => 'Error interno del servidor'], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
 
@@ -475,37 +499,137 @@ class APIController extends Controller
         ];
     }
 
-    private function buscarVuelosParaPaquete($request, $presupuesto_vuelos)
+    private function buscarVuelosParaPaquete(Request $request, $presupuesto_vuelos)
     {
-        // Implementar búsqueda específica para paquetes
-        // Similar a buscarVuelos pero filtrado por presupuesto
-        return [];
+        // Reutilizar la lógica de buscarVuelos y filtrar por presupuesto
+        $vuelos = $this->procesarRespuestaVuelos(
+            Http::withToken($this->getAmadeusToken())
+                ->get($this->amadeus_base_url . '/v2/shopping/flight-offers', [
+                    'originLocationCode' => $request->origen,
+                    'destinationLocationCode' => $request->destino,
+                    'departureDate' => $request->fecha_ida,
+                    'adults' => $request->personas,
+                    'currencyCode' => 'MXN',
+                    'max' => 50
+                ])->json()
+        );
+
+        return collect($vuelos)->filter(function ($vuelo) use ($presupuesto_vuelos) {
+            return $vuelo['precio']['total'] <= $presupuesto_vuelos;
+        })->values()->toArray();
     }
 
-    private function buscarHotelesParaPaquete($request, $presupuesto_hoteles)
+    private function buscarHotelesParaPaquete(Request $request, $presupuesto_hoteles)
     {
-        // Implementar búsqueda específica para paquetes
-        // Similar a buscarHoteles pero filtrado por presupuesto
-        return [];
+        // Reutilizar la lógica de buscarHoteles y filtrar por presupuesto
+        $hoteles = $this->procesarRespuestaHoteles(
+            Http::withHeaders([
+                'X-RapidAPI-Key' => $this->booking_api_key,
+                'X-RapidAPI-Host' => 'booking-com.p.rapidapi.com'
+            ])->get('https://booking-com.p.rapidapi.com/v1/hotels/search', [
+                'ss' => $request->destino, // Asumimos que el destino del paquete es la ciudad del hotel
+                'checkin_year' => date('Y', strtotime($request->fecha_ida)),
+                'checkin_month' => date('n', strtotime($request->fecha_ida)),
+                'checkin_monthday' => date('j', strtotime($request->fecha_ida)),
+                'checkout_year' => date('Y', strtotime($request->fecha_vuelta)),
+                'checkout_month' => date('n', strtotime($request->fecha_vuelta)),
+                'checkout_monthday' => date('j', strtotime($request->fecha_vuelta)),
+                'no_rooms' => $request->personas > 0 ? ceil($request->personas / 2) : 1, // Asumiendo 2 personas por habitación
+                'group_adults' => $request->personas,
+                'format' => 'json',
+                'currency' => 'MXN',
+                'rows' => 25
+            ])->json()
+        );
+
+        return collect($hoteles)->filter(function ($hotel) use ($presupuesto_hoteles) {
+            return $hotel['precio_por_noche'] <= $presupuesto_hoteles;
+        })->values()->toArray();
     }
 
-    private function buscarActividadesParaPaquete($request, $presupuesto_actividades)
+    private function buscarActividadesParaPaquete(Request $request, $presupuesto_actividades)
     {
-        // Implementar búsqueda específica para paquetes
-        // Similar a buscarActividades pero filtrado por presupuesto
-        return [];
+        // Reutilizar la lógica de buscarActividades y filtrar por presupuesto
+        $locationId = $this->obtenerLocationId($request->destino); // Asumimos que el destino del paquete es la ubicación de la actividad
+        if (!$locationId) {
+            return [];
+        }
+
+        $actividades = $this->procesarRespuestaActividades(
+            Http::withHeaders([
+                'X-RapidAPI-Key' => $this->tripadvisor_api_key,
+                'X-RapidAPI-Host' => 'tripadvisor1.p.rapidapi.com'
+            ])->get('https://tripadvisor1.p.rapidapi.com/restaurants/list', [ // Usando restaurants/list como ejemplo
+                'location_id' => $locationId,
+                'currency' => 'MXN',
+                'lang' => 'es_MX',
+                'limit' => 20
+            ])->json()
+        );
+
+        // Filtrar por precio estimado si la API lo proporciona y es numérico
+        return collect($actividades)->filter(function ($actividad) use ($presupuesto_actividades) {
+            // TripAdvisor price_level es una cadena (ej. "$$"). Necesitaríamos un mapeo o una API diferente.
+            // Por ahora, solo devolveremos todas las actividades si no hay un precio numérico para filtrar.
+            return true; // O implementar lógica de filtrado de precio si es posible
+        })->values()->toArray();
     }
 
     private function generarCombinacionesPaquetes($resultados, $presupuesto_total)
     {
-        // Generar diferentes combinaciones de vuelos + hoteles + actividades
-        // que se ajusten al presupuesto total
-        return [];
+        $combinaciones = [];
+
+        // Iterar sobre vuelos, hoteles y actividades para crear combinaciones
+        foreach ($resultados['vuelos'] as $vuelo) {
+            foreach ($resultados['hoteles'] as $hotel) {
+                foreach ($resultados['actividades'] as $actividad) {
+                    $costoTotal = $vuelo['precio']['total'] + $hotel['precio_por_noche'] + ($actividad['precio_estimado'] ?? 0); // Asumiendo precio_estimado es numérico
+
+                    if ($costoTotal <= $presupuesto_total) {
+                        $combinaciones[] = [
+                            'vuelo' => $vuelo,
+                            'hotel' => $hotel,
+                            'actividad' => $actividad,
+                            'costo_total' => $costoTotal
+                        ];
+                    }
+                }
+            }
+        }
+
+        // Opcional: Ordenar combinaciones por costo, relevancia, etc.
+        usort($combinaciones, function ($a, $b) {
+            return $a['costo_total'] <=> $b['costo_total'];
+        });
+
+        return $combinaciones;
     }
 
     private function obtenerLocationId($ubicacion)
     {
-        // Obtener location_id de TripAdvisor para la búsqueda
-        return '60763'; // ID de ejemplo - implementar búsqueda real
+        // Implementar búsqueda real de location_id de TripAdvisor
+        // Esto requeriría una llamada a la API de búsqueda de ubicaciones de TripAdvisor
+        // Por ejemplo: https://tripadvisor1.p.rapidapi.com/locations/search
+        // Para este ejemplo, devolveré un ID de ejemplo, pero esto debe ser dinámico.
+        // Necesitarías una validación y manejo de errores para esta llamada API.
+        try {
+            $response = Http::withHeaders([
+                'X-RapidAPI-Key' => $this->tripadvisor_api_key,
+                'X-RapidAPI-Host' => 'tripadvisor1.p.rapidapi.com'
+            ])->get('https://tripadvisor1.p.rapidapi.com/locations/search', [
+                'query' => $ubicacion,
+                'limit' => 1,
+                'lang' => 'es_MX'
+            ]);
+
+            if ($response->successful() && isset($response->json()['data'][0]['location_id'])) {
+                return $response->json()['data'][0]['location_id'];
+            }
+            Log::warning('No se pudo obtener location_id para: ' . $ubicacion . ' - ' . $response->body());
+            return null;
+        } catch (Exception $e) {
+            Log::error('Error obteniendo location_id de TripAdvisor: ' . $e->getMessage());
+            return null;
+        }
     }
 }

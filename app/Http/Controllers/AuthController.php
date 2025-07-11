@@ -161,7 +161,10 @@ class AuthController extends Controller
     public function me(Request $request): JsonResponse
     {
         try {
-            $user = User::with('turista', 'roles')->find(Auth::id());
+            // El middleware 'auth:sanctum' ya ha autenticado al usuario a través del token.
+            // Simplemente obtenemos el usuario de la solicitud y cargamos las relaciones necesarias.
+            $user = $request->user()->load('turista', 'roles');
+
             return response()->json([
                 'success' => true,
                 'data' => [
@@ -171,6 +174,7 @@ class AuthController extends Controller
         } catch (\Exception $e) {
             Log::error('Error obteniendo usuario: ' . $e->getMessage());
             return response()->json([
+                
                 'success' => false,
                 'message' => 'Error obteniendo información del usuario'
             ], Response::HTTP_INTERNAL_SERVER_ERROR);

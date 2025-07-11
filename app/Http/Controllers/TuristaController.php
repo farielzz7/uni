@@ -2,32 +2,27 @@
 
 namespace App\Http\Controllers;
 
-namespace App\Http\Controllers;
-
 use App\Models\User;
 use App\Models\Turista;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Http\JsonResponse;
+use Symfony\Component\HttpFoundation\Response;
 
 class TuristaController extends Controller
 {
-    public function index()
+    public function index(): JsonResponse
     {
-    $turistas = Turista::with(['user', 'reservas', 'pagos', 'comentarios'])->get();
-
-    return response()->json($turistas);
+        $turistas = Turista::with(['user', 'reservas', 'pagos', 'comentarios'])->get();
+        return response()->json($turistas);
     }
 
-    // Registro de turista (usuarios + perfil)
-    public function store(Request $request)
+    public function store(Request $request): JsonResponse
     {
         $validator = Validator::make($request->all(), [
-            // Datos de usuario
             'email' => 'required|email|unique:users,email',
             'password' => 'required|min:6|confirmed',
-
-            // Datos de turista
             'nombre' => 'required|string|max:100',
             'apellido' => 'required|string|max:100',
             'nacionalidad' => 'required|string|max:50',
@@ -36,58 +31,98 @@ class TuristaController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['errors' => $validator->errors()], 422);
+            return response()->json([
+                'success' => false,
+                'message' => 'Errores de validación',
+                'errors' => $validator->errors()
+            ], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
-        // Crear usuario
+        $validatedData = $validator->validated();
+
         $user = User::create([
-            'email' => $request->email,
-            'password' => Hash::make($request->password),
+            'email' => $validatedData['email'],
+            'password' => Hash::make($validatedData['password']),
         ]);
 
-        // Crear perfil de turista
         $turista = Turista::create([
-            'nombre' => $request->nombre,
-            'apellido' => $request->apellido,
-            'nacionalidad' => $request->nacionalidad,
-            'edad' => $request->edad,
-            'telefono' => $request->telefono,
+            'nombre' => $validatedData['nombre'],
+            'apellido' => $validatedData['apellido'],
+            'nacionalidad' => $validatedData['nacionalidad'],
+            'edad' => $validatedData['edad'],
+            'telefono' => $validatedData['telefono'],
             'id_usuario' => $user->id,
         ]);
 
         return response()->json([
+            'success' => true,
             'message' => 'Turista registrado correctamente.',
             'user' => $user,
             'turista' => $turista
-        ], 201);
+        ], Response::HTTP_CREATED);
     }
 
-    // Mostrar perfil de un turista
-    public function show($id)
+    public function show($id): JsonResponse
     {
-        $turista = Turista::with('user')->findOrFail($id);
+        $turista = Turista::with('user')->find($id);
+
+        if (is_null($turista)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Turista no encontrado'
+            ], Response::HTTP_NOT_FOUND);
+        }
+
         return response()->json($turista);
     }
 
-    // Actualizar perfil de turista
-    public function update(Request $request, $id)
+    public function update(Request $request, $id): JsonResponse
     {
-        $turista = Turista::findOrFail($id);
+        $turista = Turista::find($id);
 
-        $turista->update($request->only([
-            'nombre', 'apellido', 'nacionalidad', 'edad', 'telefono'
-        ]));
+        if (is_null($turista)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Turista no encontrado'
+            ], Response::HTTP_NOT_FOUND);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'nombre' => 'sometimes|required|string|max:100',
+            'apellido' => 'sometimes|required|string|max:100',
+            'nacionalidad' => 'sometimes|required|string|max:50',
+            'edad' => 'sometimes|required|integer|min:0',
+            'telefono' => 'sometimes|required|string|max:20',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Errores de validación',
+                'errors' => $validator->errors()
+            ], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        $turista->update($validator->validated());
 
         return response()->json([
+            'success' => true,
             'message' => 'Turista actualizado correctamente.',
             'turista' => $turista
         ]);
     }
 
-    //  Eliminar turista (y opcionalmente el usuario)
-    public function destroy($id)
+    public function destroy($id): JsonResponse
     {
-        $turista = Turista::findOrFail($id);
+        $turista = Turista::find($id);
+
+        if (is_null($turista)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Turista no encontrado'
+            ], Response::HTTP_NOT_FOUND);
+        }
+
         $user = $turista->user;
 
         $turista->delete();
@@ -95,6 +130,6 @@ class TuristaController extends Controller
             $user->delete();
         }
 
-        return response()->json(['message' => 'Turista y usuario eliminados correctamente.']);
+        return response()->json(['success' => true, 'message' => 'Turista y usuario eliminados correctamente.'], Response::HTTP_NO_CONTENT);
     }
 }
