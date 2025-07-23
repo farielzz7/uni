@@ -2,6 +2,8 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\PruebaXdebugController;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 /*
 |--------------------------------------------------------------------------
@@ -24,3 +26,16 @@ Route::get('/debug-test', [PruebaXdebugController::class, 'index']);
 Route::get('/test', function () {
     return response()->json(['status' => 'ok']);
 });
+
+Route::post('/upload', function (\Illuminate\Http\Request $request) {
+    if ($request->hasFile('file')) {
+        $path = $request->file('file')->store('uploads', 's3');
+
+        // URL completa del archivo en S3
+        $url = Storage::disk('s3')->url($path);
+
+        return "Archivo subido a S3: <a href='$url' target='_blank'>$url</a>";
+    }
+
+    return "No se ha subido ningún archivo.";
+})->name('upload');

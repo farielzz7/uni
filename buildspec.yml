@@ -1,31 +1,25 @@
 version: 0.2
 
 phases:
-  install:
-    runtime-versions:
-      docker: 20
-
   pre_build:
     commands:
-      - echo "Starting PRE_BUILD phase..."
-      - echo "Authenticating with Amazon ECR..."
+      - echo Iniciando sesión en Amazon ECR...
       - aws ecr get-login-password --region us-east-2 | docker login --username AWS --password-stdin 888517278813.dkr.ecr.us-east-2.amazonaws.com
-
   build:
     commands:
-      - echo "Starting BUILD phase..."
-      - echo "Building the Docker application image..."
-      - docker build -t goplan:latest .
-      - docker tag goplan:latest 888517278813.dkr.ecr.us-east-2.amazonaws.com/goplan:$CODEBUILD_RESOLVED_SOURCE_VERSION
-
+      - echo Iniciando construcción en `date`
+      - echo Construyendo la imagen Docker...
+      - docker build -t laravel-goplan .
+      - docker tag laravel-goplan:latest 888517278813.dkr.ecr.us-east-2.amazonaws.com/laravel-goplan:latest
   post_build:
     commands:
-      - echo "Starting POST_BUILD phase..."
-      - echo "Pushing the Docker image to Amazon ECR..."
-      - docker push 888517278813.dkr.ecr.us-east-2.amazonaws.com/goplan:$CODEBUILD_RESOLVED_SOURCE_VERSION
-      - echo "Writing imageDefinitions.json file..."
-      - printf '[{"name":"prod-goplan","imageUri":"%s"}]' 888517278813.dkr.ecr.us-east-2.amazonaws.com/goplan:$CODEBUILD_RESOLVED_SOURCE_VERSION > imagedefinitions.json
-
+      - echo Subiendo la imagen Docker...
+      - docker push 888517278813.dkr.ecr.us-east-2.amazonaws.com/laravel-goplan:latest
+      - echo Escribiendo archivo de definición de tarea...
+      - printf '{"family":"laravel-goplan-task","networkMode":"awsvpc","containerDefinitions":[{"name":"laravel-goplan","image":"888517278813.dkr.ecr.us-east-2.amazonaws.com/laravel-goplan:latest","cpu":0,"memory":512,"portMappings":[{"containerPort":80,"hostPort":80,"protocol":"tcp"}],"essential":true,"environment":[{"name":"APP_NAME","value":"Laravel"},{"name":"APP_ENV","value":"production"},{"name":"APP_KEY","value":"%s"},{"name":"APP_DEBUG","value":"false"},{"name":"APP_URL","value":"%s"},{"name":"LOG_CHANNEL","value":"stack"},{"name":"LOG_DEPRECATIONS_CHANNEL","value":"null"},{"name":"LOG_LEVEL","value":"debug"},{"name":"DB_CONNECTION","value":"mysql"},{"name":"DB_HOST","value":"%s"},{"name":"DB_PORT","value":"3306"},{"name":"DB_DATABASE","value":"gp"},{"name":"DB_USERNAME","value":"%s"},{"name":"DB_PASSWORD","value":"%s"},{"name":"BROADCAST_DRIVER","value":"log"},{"name":"CACHE_DRIVER","value":"file"},{"name":"FILESYSTEM_DISK","value":"local"},{"name":"QUEUE_CONNECTION","value":"sync"},{"name":"SESSION_DRIVER","value":"file"},{"name":"SESSION_LIFETIME","value":"120"},{"name":"XDEBUG_MODE","value":"off"}],"mountPoints":[],"volumesFrom":[],"logConfiguration":{"logDriver":"awslogs","options":{"awslogs-group":"/ecs/laravel-goplan","awslogs-region":"us-east-2","awslogs-stream-prefix":"ecs"},"systemControls":[]}],"executionRoleArn":"arn:aws:iam::888517278813:role/ecsTaskExecutionRole","taskRoleArn":"arn:aws:iam::888517278813:role/ecsTaskRole","requiresCompatibilities":["FARGATE"],"cpu":"256","memory":"512"}' $APP_KEY $APP_URL $DB_HOST $DB_USERNAME $DB_PASSWORD > taskdef.json
+      - echo Actualizando servicio ECS...
+      - aws ecs register-task-definition --cli-input-json file://taskdef.json
+      - aws ecs update-service --cluster laravel-goplan-cluster --service laravel-goplan-service --task-definition laravel-goplan-task
 artifacts:
   files:
-    - imagedefinitions.json
+    - taskdef.json
