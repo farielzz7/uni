@@ -2,7 +2,7 @@ FROM php:8.2-fpm
 
 # Instalar dependencias del sistema y extensiones de PHP
 RUN apt-get update && apt-get install -y \
-    nginx supervisor \
+    nginx supervisor sudo \
     libpng-dev libonig-dev libxml2-dev libzip-dev libpq-dev unzip curl \
     && docker-php-ext-install pdo pdo_mysql zip exif pcntl bcmath \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
@@ -53,9 +53,6 @@ RUN sudo -u www-data php artisan key:generate --no-interaction || true
 RUN sudo -u www-data php artisan config:clear
 RUN sudo -u www-data php artisan cache:clear
 RUN sudo -u www-data php artisan view:clear
-
-# Instalar sudo para el comando anterior
-RUN apt-get update && apt-get install -y sudo
 
 # Exponer el puerto para nginx
 EXPOSE 80
