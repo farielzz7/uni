@@ -30,28 +30,32 @@ COPY . .
 # Instalar dependencias de Laravel
 RUN composer install --no-interaction --prefer-dist --optimize-autoloader --no-dev
 
-# CRÍTICO: Crear TODA la estructura de directorios de storage
+# CRÍTICO: Crear estructura de directorios y establecer propietario ANTES
 RUN mkdir -p storage/framework/{cache,sessions,views} \
     && mkdir -p storage/logs \
     && mkdir -p storage/app/public \
-    && mkdir -p bootstrap/cache
+    && mkdir -p bootstrap/cache \
+    && chown -R www-data:www-data /var/www \
+    && chmod -R 775 /var/www/storage \
+    && chmod -R 775 /var/www/bootstrap/cache
 
 # Copiar configuraciones
 COPY ./docker/nginx/conf.d/default.conf /etc/nginx/conf.d/default.conf
 COPY ./docker/supervisord.conf /etc/supervisord.conf
 
-# Establecer permisos COMPLETOS para storage
-RUN chown -R www-data:www-data /var/www \
-    && chmod -R 775 /var/www/storage \
-    && chmod -R 775 /var/www/bootstrap/cache
+# Crear el archivo de log manualmente con permisos correctos
+RUN touch /var/www/storage/logs/laravel.log \
+    && chown www-data:www-data /var/www/storage/logs/laravel.log \
+    && chmod 664 /var/www/storage/logs/laravel.log
 
-# Generar key de Laravel si no existe
-RUN php artisan key:generate --no-interaction || true
+# Ejecutar comandos de Laravel como www-data
+RUN sudo -u www-data php artisan key:generate --no-interaction || true
+RUN sudo -u www-data php artisan config:clear
+RUN sudo -u www-data php artisan cache:clear
+RUN sudo -u www-data php artisan view:clear
 
-# Limpiar caches
-RUN php artisan config:clear \
-    && php artisan cache:clear \
-    && php artisan view:clear
+# Instalar sudo para el comando anterior
+RUN apt-get update && apt-get install -y sudo
 
 # Exponer el puerto para nginx
 EXPOSE 80

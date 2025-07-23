@@ -13,10 +13,14 @@ return new class extends Migration
             $table->unsignedBigInteger('id_servicio');
             $table->integer('cantidad');
             $table->decimal('precio_individual', 10, 2);
+            $table->timestamps();
 
+            // Claves foráneas
             $table->foreign('id_paquete')->references('id')->on('paquetes');
             $table->foreign('id_servicio')->references('id')->on('servicios');
-            $table->timestamps();
+
+            // ✅ Clave primaria compuesta
+            $table->primary(['id_paquete', 'id_servicio']);
         });
     }
 
@@ -25,3 +29,4 @@ return new class extends Migration
         Schema::dropIfExists('paquete_servicio');
     }
 };
+    
