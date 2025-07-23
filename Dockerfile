@@ -10,7 +10,7 @@ RUN apt-get update && apt-get install -y \
 # Instalar Composer desde imagen oficial
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
-# IMPORTANTE: Remover la configuración por defecto de nginx
+# Remover la configuración por defecto de nginx
 RUN rm /etc/nginx/sites-enabled/default \
     && rm /etc/nginx/sites-available/default
 
@@ -24,23 +24,34 @@ RUN mkdir -p /var/log/supervisor
 # Establecer directorio de trabajo
 WORKDIR /var/www
 
-# Copiar el código de Laravel PRIMERO
+# Copiar el código de Laravel
 COPY . .
 
 # Instalar dependencias de Laravel
 RUN composer install --no-interaction --prefer-dist --optimize-autoloader --no-dev
 
-# Copiar configuraciones DESPUÉS de tener los archivos
+# CRÍTICO: Crear TODA la estructura de directorios de storage
+RUN mkdir -p storage/framework/{cache,sessions,views} \
+    && mkdir -p storage/logs \
+    && mkdir -p storage/app/public \
+    && mkdir -p bootstrap/cache
+
+# Copiar configuraciones
 COPY ./docker/nginx/conf.d/default.conf /etc/nginx/conf.d/default.conf
 COPY ./docker/supervisord.conf /etc/supervisord.conf
 
-# Establecer permisos
+# Establecer permisos COMPLETOS para storage
 RUN chown -R www-data:www-data /var/www \
-    && chmod -R 755 /var/www/storage \
-    && chmod -R 755 /var/www/bootstrap/cache
+    && chmod -R 775 /var/www/storage \
+    && chmod -R 775 /var/www/bootstrap/cache
 
-# Verificar que el directorio public existe
-RUN ls -la /var/www/public/
+# Generar key de Laravel si no existe
+RUN php artisan key:generate --no-interaction || true
+
+# Limpiar caches
+RUN php artisan config:clear \
+    && php artisan cache:clear \
+    && php artisan view:clear
 
 # Exponer el puerto para nginx
 EXPOSE 80
