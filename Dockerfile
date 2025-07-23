@@ -1,10 +1,14 @@
 FROM php:8.2-fpm
 
+# Instalar dependencias del sistema y extensiones de PHP
 RUN apt-get update && apt-get install -y \
     nginx supervisor \
-    libpng-dev libonig-dev libxml2-dev libzip-dev libpq-dev \
+    libpng-dev libonig-dev libxml2-dev libzip-dev libpq-dev unzip curl \
     && docker-php-ext-install pdo pdo_mysql zip exif pcntl bcmath \
     && apt-get clean && rm -rf /var/lib/apt-lists/*
+
+# Instalar Composer desde imagen oficial
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 # Redirigir logs de Nginx y PHP-FPM a stderr para CloudWatch
 RUN ln -sf /dev/stderr /var/log/nginx/access.log \
