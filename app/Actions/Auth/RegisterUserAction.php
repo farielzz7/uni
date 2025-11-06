@@ -2,10 +2,14 @@
 
 namespace App\Actions\Auth;
 
-use App\Models\User;
+use App\Models\Rol;
 use App\Models\Turista;
+use App\Models\User;
+use App\Models\UsuarioXRol;
+use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use RuntimeException;
 
 class RegisterUserAction
 {
@@ -28,10 +32,16 @@ class RegisterUserAction
                 'id_usuario' => $user->id,
             ]);
 
-            // Asignar rol por defecto (turista)
-            DB::table('usuarioxrol')->insert([
+            $defaultRoleKey = Config::get('roles.default', 'turista');
+            $defaultRole = Rol::where('clave_rol', $defaultRoleKey)->first();
+
+            if (!$defaultRole) {
+                throw new RuntimeException("No se encontró el rol por defecto '{$defaultRoleKey}'.");
+            }
+
+            UsuarioXRol::create([
                 'id_usuario' => $user->id,
-                'id_rol' => 1 // ID del rol "turista"
+                'id_rol' => $defaultRole->id,
             ]);
 
             DB::commit();

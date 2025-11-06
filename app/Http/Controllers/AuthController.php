@@ -2,9 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\User;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Log;
 use App\Actions\Auth\RegisterUserAction;
@@ -13,6 +11,7 @@ use App\Actions\Auth\LogoutUserAction;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Http\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
+use Illuminate\Support\Arr;
 
 class AuthController extends Controller
 {
@@ -95,26 +94,23 @@ class AuthController extends Controller
                 ], Response::HTTP_UNPROCESSABLE_ENTITY);
             }
             
-            $credentials = $request->only('email', 'password');
+            $credentials = Arr::only($validator->validated(), ['email', 'password']);
             $remember = $request->boolean('remember_me');
 
-            if (!Auth::attempt($credentials, $remember)) {
+            $result = $loginUserAction->execute($credentials, $remember);
+
+            if (!$result) {
                 throw ValidationException::withMessages([
                     'email' => [__('auth.failed')],
                 ]);
             }
 
-            $user = User::where('email', $request->email)->with('turista', 'roles')->first();
-            
-            $user->tokens()->delete();
-            $token = $user->createToken('auth_token')->plainTextToken;
-
             return response()->json([
                 'success' => true,
                 'message' => '¡Inicio de sesión exitoso!',
                 'data' => [
-                    'user' => $user,
-                    'token' => $token,
+                    'user' => $result['user'],
+                    'token' => $result['token'],
                 ]
             ]);
 

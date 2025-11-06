@@ -8,7 +8,8 @@ use App\Models\Turista;
 use App\Models\Paquete;
 use App\Models\Configuracion;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Config;
 use Illuminate\Http\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -33,17 +34,17 @@ class ContratoController extends Controller
                 ], Response::HTTP_UNPROCESSABLE_ENTITY);
             }
 
-            $turista = Turista::find($turistaId);
-            $paquete = Paquete::find($paqueteId);
+            $turista = Turista::findOrFail($turistaId);
+            $paquete = Paquete::findOrFail($paqueteId);
 
-            // Autorización: Solo el turista asociado o un administrador pueden generar el contrato
-            // Asumiendo que tienes un método hasRole en tu modelo User
-            // if (Auth::id() !== $turista->id_usuario && (!Auth::user() || !Auth::user()->hasRole('admin'))) {
-            //     return response()->json([
-            //         'success' => false,
-            //         'message' => 'No autorizado para generar este contrato'
-            //     ], Response::HTTP_FORBIDDEN);
-            // }
+            $user = $request->user();
+
+            if (!$user || ($user->id !== $turista->id_usuario && !$user->hasRole(Config::get('roles.admin', 'admin')))) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No autorizado para generar este contrato'
+                ], Response::HTTP_FORBIDDEN);
+            }
 
             // Obtener datos de la empresa de la configuración
             $empresaNombre = Configuracion::where('clave', 'empresa_nombre')->value('valor') ?? 'GoPlan';
@@ -63,15 +64,20 @@ class ContratoController extends Controller
 
             $pdf = PDF::loadView('contracts.template', $data);
 
-            // Para devolver el PDF directamente en la respuesta HTTP
-            // return $pdf->download('contrato-' . $turista->nombre . '.pdf');
+            $fileName = sprintf(
+                'contrato-%s-%s-%s.pdf',
+                $turista->id,
+                $paquete->id,
+                now()->format('YmdHis')
+            );
 
-            // Para devolver una URL de descarga (requiere almacenamiento y configuración de rutas)
-            // Por ahora, solo devolveremos un mensaje de éxito y la URL de ejemplo.
+            $path = 'contracts/' . $fileName;
+            Storage::disk('public')->put($path, $pdf->output());
+
             return response()->json([
                 'success' => true,
                 'message' => 'Contrato generado exitosamente',
-                'pdf_url' => url('storage/contracts/contrato-' . $turista->nombre . '.pdf') // Esto es un ejemplo, la URL real dependerá de cómo sirvas los PDFs
+                'pdf_url' => Storage::disk('public')->url($path)
             ]);
 
         } catch (\Exception $e) {
